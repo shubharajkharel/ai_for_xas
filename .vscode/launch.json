@@ -11,7 +11,9 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "cwd": "${workspaceFolder}"
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+            },
         }
     ]
 }
