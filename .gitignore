@@ -1,4 +1,8 @@
 lightning_logs/
+outputs/
+results/
+*.png
+
 # Created by https://www.toptal.com/developers/gitignore/api/macos,linux,jupyternotebooks,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,linux,jupyternotebooks,python
 

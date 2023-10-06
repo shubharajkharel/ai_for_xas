@@ -43,8 +43,6 @@ class DynamicFCOptunaObjective:
             self.hydra_cfg.optimization.min_depth,
             self.hydra_cfg.optimization.max_depth,
         )
-        # depth = trial.suggest_int("depth", self.min_depth, self.max_depth)
-        # widths = [self.input_size]
         widths = [self.hydra_cfg.model.input_size]
 
         widths += [
@@ -92,37 +90,11 @@ def setup_distributed(cfg: DictConfig):
         conn = sqlite3.connect(sql_file_name)
         conn.close()
 
-    # optuna.create_study(
-    #     study_name=cfg.study.study_name,
-    #     storage="sqlite:///" + sql_file_name,
-    #     directions=["minimize", "minimize"],
-    #     load_if_exists=False,
-    #     sampler=None,
-    # )
-
 
 @hydra.main(version_base=None, config_path="cfg", config_name="config")
 def main(cfg: DictConfig):
-    # study = optuna.create_study(
-    #     study_name="xas",
-    #     storage="sqlite:///xas.db",
-    # )
-
-    # study:
-    #   _target_: optuna.create_study
-    #   study_name: "xas"
-    #   storage: sqlite:///${study.study_name}.db # currently sqlite
-    #   direction: minimize
-    #   # directions: [minimize, minimize] # or   # direction: minimize
-    #   load_if_exists: False
-    #   sampler: null # None mean /NSGAII for single/mult-objective
-    #   # pruner: not useful for multi-objective
-    #   # _target_: optuna.pruners.MedianPruner
-
-    print("Running main")
     study = (
-        # hydra.utils.call(cfg.study)
-        instantiate(cfg.study)
+        hydra.utils.call(cfg.study)
         if not cfg.optimization.run_distributed
         else optuna.load_study(
             study_name=cfg.study.study_name, storage=cfg.study.storage
@@ -138,10 +110,7 @@ def main(cfg: DictConfig):
         n_jobs=cfg.optimization.n_jobs,
     )  # n_jobs will for each process if calling from command line
 
-    ax = optuna.visualization.matplotlib.plot_contour(study)
-    # ax = optuna.visualization.matplotlib.plot_contour(study, params=["depth", "depth"])
-    # fig = ax.figure
-    # fig.savefig("contour.png", dpi=300)
+    # ax = optuna.visualization.matplotlib.plot_contour(study)
 
 
 # @hydra.main(version_base=None, config_path="cfg", config_name="config")
@@ -158,6 +127,12 @@ if __name__ == "__main__":
     # profile_max_baseline()
     # setup_distributed()
     main()
+
+    # compound_name = "Cu-O"
+    # data_module = XASDataModule(dtype=torch.float32, num_workers=0, compound=compound_name)
+    # model = PlDynamicFC(widths=[64, 400], output_size=200)
+    # trainer = pl.Trainer(max_epochs=10)
+    # trainer.fit(model, data_module)
 
     # to save sampler
     # not sure why

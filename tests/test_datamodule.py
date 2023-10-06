@@ -1,5 +1,5 @@
 import unittest
-from src.dataset import XASDataModule
+from xas.dataset import XASDataModule
 import torch
 
 
