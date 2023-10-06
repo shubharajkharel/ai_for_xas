@@ -5,7 +5,6 @@ from typing import Literal, Union
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset
-from xas.data_heatmaps import plot_heatmap
 
 
 from utils.src.lightning.pl_data_module import PlDataModule
@@ -66,28 +65,16 @@ class XASDataModule(PlDataModule):
         return x, y
 
 
-# def plot_spectral_heatmap(compound, task, data, min_val, max_val, title_prefix):
-#     plot_heatmap(
-#         y_data=data,
-#         title=f"{title_prefix} for {compound} in {task}",
-#         save=True,
-#         yticks_values=np.linspace(min_val, max_val, 10),
-#     )
-
-
 if __name__ == "__main__":
-    pass
-    # data_module = XASDataModule()
-    # print(data_module.train_dataset[0][0].shape)
-    # print(data_module.train_dataset[0][1].shape)
+    from utils.src.plots.heatmap_of_lines import heatmap_of_lines
+    import matplotlib.pyplot as plt
 
-    # compounds = ["Cu-O", "Ti-O"]
-    # tasks = ["train", "test"]
-    # for idx, title in [(1, "Target distribution"), (0, "Input distribution")]:
-    #     for compound in compounds:
-    #         for task in tasks:
-    #             data = XASDataModule.load_data(compound=compound, task=task)[idx]
-    #             data = (data - data.min()) / (data.max() - data.min())
-    #             plot_spectral_heatmap(
-    #                 compound, task, data, data.min(), data.max(), title
-    #             )
+    compounds = ["Cu-O", "Ti-O"]
+    tasks = ["train", "test"]
+    for idx, title in [(1, "Spectral Data"), (0, "Features")]:
+        for compound in compounds:
+            for task in tasks:
+                data = XASDataModule.load_data(compound=compound, task=task)[idx]
+                title = f"{title} for {compound} in {task}"
+                heatmap_of_lines(data=data, title=title)
+                plt.savefig(f"{title}.png", dpi=300)
