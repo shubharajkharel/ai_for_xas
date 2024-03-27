@@ -17,22 +17,26 @@ from config.defaults import cfg
 
 from src.data.material_split import MaterialSplitter
 from utils.src.lightning.pl_data_module import PlDataModule
+from dgl import DGLHeteroGraph
 
 
 @dataclass
 class DataSplit:
-    X: np.ndarray
+    X: Union[np.ndarray, DGLHeteroGraph]
     y: np.ndarray
 
     def __post_init__(self):
         if not len(self.X) == len(self.y):
             raise ValueError("X and y must have same length")
-        if self.X.dtype != self.y.dtype:
-            raise ValueError("X and y must have same dtype")
+        if self.X.dtype != self.y.dtype and not isinstance(self.X[0], DGLHeteroGraph):
+            raise ValueError("X and y ndarray must have same dtype")
 
     @property
     def tensors(self):
-        return torch.tensor(self.X), torch.tensor(self.y)
+        x_is_graph = isinstance(self.X[0], DGLHeteroGraph)
+        X = self.X if x_is_graph else torch.tensor(self.X)
+        y = torch.tensor(self.y)
+        return X, y
 
 
 @dataclass
@@ -43,6 +47,8 @@ class MLSplits:
 
     @property
     def tensors(self):
+        if isinstance(self.train.X, DGLHeteroGraph):
+            raise NotImplementedError("DGLHeteroGraph->Tensor not implemented.")
         out_tensor = (self.train.tensors, self.val.tensors, self.test.tensors)
         flatten = itertools.chain.from_iterable
         return tuple(flatten(out_tensor))
@@ -144,7 +150,10 @@ def load_xas_ml_data(
         id_match = np.isin(data_all["ids"], material_ids)
         site_match = np.isin(data_all["sites"], sites)
         filter = np.where(id_match & site_match)[0]
-        X = data_all["features"][filter].astype(np.float32)
+        X = data_all["features"][filter]
+        x_not_graph = "GRAPH" not in query.simulation_type
+        if x_not_graph:
+            X = X.astype(np.float32)
         y = data_all["spectras"][filter].astype(np.float32)
         return DataSplit(X, y)
 
@@ -159,9 +168,10 @@ def load_xas_ml_data(
     out = FeatureProcessor(query, splits).splits if reduce_dims else splits
 
     if normalize:  # TODO: use standard scaler or stg
-        out.train.X *= 1000
-        out.val.X *= 1000
-        out.test.X *= 1000
+        if not isinstance(out.train.X[0], DGLHeteroGraph):
+            out.train.X *= 1000
+            out.val.X *= 1000
+            out.test.X *= 1000
         out.train.y *= 1000
         out.val.y *= 1000
         out.test.y *= 1000
@@ -179,7 +189,10 @@ class XASPlData(PlDataModule):
     ):
         def dataset(split: DataSplit):
             X, y = split.tensors
-            return TensorDataset(X.type(dtype), y.type(dtype))
+            X = X if isinstance(X[0], DGLHeteroGraph) else X.type(dtype)
+            y = y.type(dtype)
+            return TensorDataset(X, y)
+            # return TensorDataset(X.type(dtype), y.type(dtype))
 
         split_fractions = split_fractions or cfg.data_module.split_fractions
 
@@ -276,12 +289,24 @@ def load_all_data(
 
 if __name__ == "__main__":
 
-    # =============================================================================
+    from src.models.xas_m3gnet import XASM3GNet
+    from utils.src.lightning.pl_module import PLModule
+    from lightning import Trainer
+
+    model = XASM3GNet()
+    pl_model = PLModule(model)
+    trainer = Trainer()
+    data_module = XASPlData(DataQuery("Cu", "FEFF_GRAPH"))
+    trainer.fit(pl_model, data_module)
+
+
+"""     # =============================================================================
     # tests if pca and scaler are cached
     # =============================================================================
     from p_tqdm import p_map
 
-    load_xas_ml_data(DataQuery("Cu", "SOAP"))
+    # load_xas_ml_data(DataQuery("Cu", "SOAP"))
+    load_xas_ml_data(DataQuery("Cu", "FEFF_GRAPH"))
 
     # # should cache pca and scaler
     # p_map(
@@ -307,3 +332,4 @@ if __name__ == "__main__":
     #     sizes = sizes / sizes.sum()
     #     print(sizes)
     # print_fractions(pl_data)  # [0.8 0.1 0.1]
+ """
